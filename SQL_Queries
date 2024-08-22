@@ -1,0 +1,308 @@
+---NASHVILLE HOUSING DATASET CLEANUP---
+
+--(I have a table full of nashville housing data that is pretty messy and is not very user friendly.)
+--(I see a few things that can be changed:)
+
+-- 1.) (Line 18) the SaleDate format needs to be changed
+-- 2.) (Line 45) there are missing values for PropertyAddress that we can populate
+-- 3.) (Line 92) the different addresses can be split into individual columns
+-- 4.) (Line 174) there are multiple different values for the SoldAsVacant culumn that can be changed to 'Yes' and 'No'
+-- 5.) (Line 213) there are duplicate rows that can be removed
+-- 6.) (Line 290) after all of this, the unnecessary columns left over can be removed as well
+
+SELECT *
+FROM dbo.NashvilleHousing;
+
+
+-------------------------------------------------------------------------------------------------------------------------------------
+--- 1.) Change Sale Date Format
+
+--(The table has a time fomrat for some reason.)
+--(There is no data associated with it and thus it is only taking up space.)
+--(I will remove it.)
+
+SELECT SaleDate, CONVERT(Date,SaleDate)
+FROM dbo.NashvilleHousing;
+
+ALTER TABLE NashvilleHousing 
+ADD SaleDateConverted Date;
+
+Update NashvilleHousing
+SET SaleDateConverted = CONVERT(Date, SaleDate);
+
+SELECT SaleDateConverted, CONVERT(Date,SaleDate)
+FROM dbo.NashvilleHousing;
+
+
+
+
+
+
+
+
+
+-------------------------------------------------------------------------------------------------------------------------------------
+--- 2.) Populate Property Address
+
+--(We have a lot of null values for property addresses for some reason.)
+--(Way more often than not the porperty address for sales records will not change though the seller or seller address would.)
+--(Luckily, I can use the Parcel ID's to populate missing property addresses since a lot of Parcel ID's have matching property addresses.)
+--(I chose to join the tbales first so I have something that corresponds to match over.)
+
+
+
+SELECT *
+FROM dbo.NashvilleHousing
+WHERE PropertyAddress IS NULL
+ORDER BY ParcelID;
+
+SELECT a.ParcelID, a.PropertyAddress, b.ParcelID, b.PropertyAddress, ISNULL(a.PropertyAddress,b.PropertyAddress)
+FROM dbo.NashvilleHousing a
+JOIN dbo.NashvilleHousing b
+    ON a.ParcelID = b.ParcelID
+    AND a.UniqueID <> b.UniqueID
+WHERE a.PropertyAddress IS NULL;
+
+UPDATE a
+SET PropertyAddress = ISNULL(a.PropertyAddress,b.PropertyAddress)
+FROM dbo.NashvilleHousing a
+JOIN dbo.NashvilleHousing b
+    ON a.ParcelID = b.ParcelID
+    AND a.UniqueID <> b.UniqueID
+WHERE a.PropertyAddress IS NULL;
+
+SELECT a.ParcelID, a.PropertyAddress, b.ParcelID, b.PropertyAddress, ISNULL(a.PropertyAddress,b.PropertyAddress)
+FROM dbo.NashvilleHousing a
+JOIN dbo.NashvilleHousing b
+    ON a.ParcelID = b.ParcelID
+    AND a.UniqueID <> b.UniqueID
+WHERE a.PropertyAddress IS NULL;
+
+--(This seems much better.)
+
+
+
+
+
+
+
+
+
+-------------------------------------------------------------------------------------------------------------------------------------
+--- 3.) Splitting Addresses Into Individual Columns
+
+--(The addresses in our data do not have commas/delimiters in them.)
+--(If we ever had to search throught the data for a given street, city, etc. this would make it difficult.)
+--(I will start with the property addresses and add some in using a substring to help separate our values.)
+
+SELECT PropertyAddress
+FROM dbo.NashvilleHousing;
+
+SELECT
+SUBSTRING(PropertyAddress, 1, CHARINDEX(',', PropertyAddress) -1 ) AS Address
+, SUBSTRING(PropertyAddress, CHARINDEX(',', PropertyAddress) + 1 , LEN(PropertyAddress)) AS Address
+FROM dbo.NashvilleHousing;
+
+--(I threw positions in the string to remove the commas at the end and before each column regarding the PropertyAddress.)
+
+
+
+ALTER TABLE NashvilleHousing 
+ADD PropertySplitAddress NVARCHAR(255);
+
+Update NashvilleHousing
+SET PropertySplitAddress = SUBSTRING(PropertyAddress, 1, CHARINDEX(',', PropertyAddress) -1 );
+
+ALTER TABLE NashvilleHousing 
+ADD PropertySplitCity NVARCHAR(255);
+
+Update NashvilleHousing
+SET PropertySplitCity = SUBSTRING(PropertyAddress, CHARINDEX(',', PropertyAddress) + 1 , LEN(PropertyAddress));
+
+--(I created two new columns to separate the property address and property city)
+
+
+
+SELECT *
+FROM dbo.NashvilleHousing;
+
+--(This looks much better and makes searching and organizing by the property address and property city much less annoying)
+
+
+
+SELECT OwnerAddress
+FROM dbo.NashvilleHousing;
+
+--(Now I need to do the same thing for the OwnerAddress because it is also a mess.)
+--(I will do this using a Parse instead
+
+SELECT
+PARSENAME (REPLACE(OwnerAddress, ',', '.') ,3)
+,PARSENAME (REPLACE(OwnerAddress, ',', '.') ,2)
+,PARSENAME (REPLACE(OwnerAddress, ',', '.') ,1)
+FROM dbo.NashvilleHousing;
+
+ALTER TABLE NashvilleHousing 
+ADD OwnerSplitAddress NVARCHAR(255);
+
+ALTER TABLE NashvilleHousing 
+ADD OwnerSplitCity NVARCHAR(255);
+
+ALTER TABLE NashvilleHousing 
+ADD OwnerSplitState NVARCHAR(255);
+
+Update NashvilleHousing
+SET OwnerSplitAddress = PARSENAME (REPLACE(OwnerAddress, ',', '.') ,3);
+
+Update NashvilleHousing
+SET OwnerSplitCity = PARSENAME (REPLACE(OwnerAddress, ',', '.') ,2);
+
+Update NashvilleHousing
+SET OwnerSplitState = PARSENAME (REPLACE(OwnerAddress, ',', '.') ,1);
+
+SELECT *
+FROM dbo.NashvilleHousing;
+
+
+
+
+
+
+
+
+-------------------------------------------------------------------------------------------------------------------------------------
+--- 4.) Change 'Y' and 'N' to 'Yes' and 'No' in the SoldAsVacant Column
+
+--(We have both Y' and 'N' and 'Yes' and 'No' in one of our columns)
+--(This makes searches hairy and potentially misleading as data could be left out)
+--(For ease of use, I would like to change the 'Y' and 'N' to 'Yes' and 'No' in the SoldAsVacant column)
+--(This will allow for more accurate searchers and cleaner organization of the data)
+
+SELECT DISTINCT (SoldAsVacant), COUNT(SoldAsVacant)
+FROM dbo.NashvilleHousing
+GROUP BY SoldAsVacant 
+ORDER BY 2;
+
+SELECT SoldAsVacant
+, CASE WHEN SoldAsVacant = 'Y' THEN 'Yes'
+       WHEN SoldAsVacant = 'N' THEN 'No'
+       ELSE SoldAsVacant
+       END
+FROM dbo.NashvilleHousing;
+
+UPDATE dbo.NashvilleHousing
+SET SoldAsVacant = CASE WHEN SoldAsVacant = 'Y' THEN 'Yes'
+       WHEN SoldAsVacant = 'N' THEN 'No'
+       ELSE SoldAsVacant
+       END
+
+SELECT DISTINCT (SoldAsVacant), COUNT(SoldAsVacant)
+FROM dbo.NashvilleHousing
+GROUP BY SoldAsVacant 
+ORDER BY 2;
+
+--(This looks much better)
+
+
+
+
+
+
+
+-------------------------------------------------------------------------------------------------------------------------------------
+--- 5.) Remove Duplicate Values
+
+--(There are a few duplicate values in the table.)
+--(It's kind of uncommon to delete data but let's say in the future we wanted to pull data on transaction count or something similar.)
+--(The duplicate values would make our picture of the actual data inaccurate.)
+--(I will delete these.)
+
+WITH RowNumCTE AS(
+SELECT *,
+    ROW_NUMBER () OVER (
+        PARTITION BY ParcelID,
+                     PropertyAddress,
+                     SalePrice,
+                     SaleDate,
+                     LegalReference
+                     ORDER BY
+                        UniqueID
+    ) row_num
+FROM dbo.NashvilleHousing
+)
+SELECT *
+FROM RowNumCTE
+WHERE row_num > 1
+ORDER BY PropertyAddress
+
+--(It appears that the table has 104 duplicates.)
+--(I will delete them now. Hopefully without deleting something else instead.)
+
+
+
+WITH RowNumCTE AS(
+SELECT *,
+    ROW_NUMBER () OVER (
+        PARTITION BY ParcelID,
+                     PropertyAddress,
+                     SalePrice,
+                     SaleDate,
+                     LegalReference
+                     ORDER BY
+                        UniqueID
+    ) row_num
+FROM dbo.NashvilleHousing
+)
+DELETE
+FROM RowNumCTE
+WHERE row_num > 1
+
+--(Let's see if there are any more duplicates in the CTE)
+
+
+
+WITH RowNumCTE AS(
+SELECT *,
+    ROW_NUMBER () OVER (
+        PARTITION BY ParcelID,
+                     PropertyAddress,
+                     SalePrice,
+                     SaleDate,
+                     LegalReference
+                     ORDER BY
+                        UniqueID
+    ) row_num
+FROM dbo.NashvilleHousing
+)
+SELECT *
+FROM RowNumCTE
+WHERE row_num > 1;
+
+--(Nice.)
+
+
+
+
+
+
+
+-------------------------------------------------------------------------------------------------------------------------------------
+--- 6.) Delete Unnecessary Columns
+
+--(Now that the table has a bunch of added and modified columns in it, the leftovers that won't be used anymore should be removed)
+--(I have two in mind being the OwnerAddress and PropertyAddress since these were split up and modified)
+
+ALTER TABLE dbo.NashvilleHousing
+DROP COLUMN OwnerAddress, PropertyAddress;
+
+SELECT *
+FROM dbo.NashvilleHousing;
+
+--(That was a little nervewracking but it came out well.)
+--(I forgot to remove the SaleDate column. Let me fix that.)
+
+ALTER TABLE dbo.NashvilleHousing
+DROP COLUMN SaleDate;
+
+SELECT *
+FROM dbo.NashvilleHousing;
