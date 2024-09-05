@@ -185,9 +185,9 @@ ORDER BY 2;
 
 SELECT SoldAsVacant
 , CASE WHEN SoldAsVacant = 'Y' THEN 'Yes'
-       WHEN SoldAsVacant = 'N' THEN 'No'
-       ELSE SoldAsVacant
-       END
+WHEN SoldAsVacant = 'N' THEN 'No'
+ELSE SoldAsVacant
+END
 FROM dbo.NashvilleHousing;
 
 UPDATE dbo.NashvilleHousing
@@ -218,18 +218,14 @@ ORDER BY 2;
 --(I will delete these.)
 
 WITH RowNumCTE AS(
-SELECT *,
-    ROW_NUMBER () OVER (
-        PARTITION BY ParcelID,
-                     PropertyAddress,
-                     SalePrice,
-                     SaleDate,
-                     LegalReference
-                     ORDER BY
-                        UniqueID
-    ) row_num
-FROM dbo.NashvilleHousing
-)
+SELECT *, ROW_NUMBER () 
+OVER (PARTITION BY ParcelID,
+PropertyAddress,
+SalePrice,
+SaleDate,
+LegalReference
+ORDER BY UniqueID) row_num
+FROM dbo.NashvilleHousing)
 SELECT *
 FROM RowNumCTE
 WHERE row_num > 1
@@ -241,20 +237,16 @@ ORDER BY PropertyAddress
 
 
 WITH RowNumCTE AS(
-SELECT *,
-    ROW_NUMBER () OVER (
-        PARTITION BY ParcelID,
-                     PropertyAddress,
-                     SalePrice,
-                     SaleDate,
-                     LegalReference
-                     ORDER BY
-                        UniqueID
-    ) row_num
-FROM dbo.NashvilleHousing
-)
-DELETE
-FROM RowNumCTE
+SELECT *, ROW_NUMBER () 
+OVER (PARTITION BY ParcelID,
+PropertyAddress,
+SalePrice,
+SaleDate,
+LegalReference
+ORDER BY
+UniqueID) row_num
+FROM dbo.NashvilleHousing)
+DELETE FROM RowNumCTE
 WHERE row_num > 1
 
 --(Let's see if there are any more duplicates in the CTE)
@@ -262,18 +254,14 @@ WHERE row_num > 1
 
 
 WITH RowNumCTE AS(
-SELECT *,
-    ROW_NUMBER () OVER (
-        PARTITION BY ParcelID,
-                     PropertyAddress,
-                     SalePrice,
-                     SaleDate,
-                     LegalReference
-                     ORDER BY
-                        UniqueID
-    ) row_num
-FROM dbo.NashvilleHousing
-)
+SELECT *, ROW_NUMBER () OVER 
+(PARTITION BY ParcelID,
+PropertyAddress,
+SalePrice,
+SaleDate,
+LegalReference
+ORDER BY UniqueID) row_num
+FROM dbo.NashvilleHousing)
 SELECT *
 FROM RowNumCTE
 WHERE row_num > 1;
