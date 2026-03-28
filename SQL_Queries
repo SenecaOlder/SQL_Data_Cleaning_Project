@@ -17,7 +17,7 @@ FROM dbo.NashvilleHousing;
 -------------------------------------------------------------------------------------------------------------------------------------
 --- 1.) Change Sale Date Format
 
---(The table has a time fomrat for some reason.)
+--(The table has a time format for some reason.)
 --(There is no data associated with it and thus it is only taking up space.)
 --(I will remove it.)
 
@@ -45,9 +45,9 @@ FROM dbo.NashvilleHousing;
 --- 2.) Populate Property Address
 
 --(There are a lot of null values for property addresses for some reason.)
---(Way more often than not the porperty address for sales records will not change though the seller or seller address would.)
+--(Way more often than not the property address for sales records will not change though the seller or seller address would.)
 --(Luckily, I can use the Parcel ID's to populate missing property addresses since a lot of Parcel ID's have matching property addresses.)
---(I chose to join the tbales first so I have something that corresponds to match over.)
+--(I chose to join the tables first so I have something that corresponds to match over.)
 
 
 
